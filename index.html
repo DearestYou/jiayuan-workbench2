@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#FFD700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>家园沟通站</title>
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background: #FFF8E1;
+      color: #5D4037;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      padding-bottom: 70px;
+      min-height: 100vh;
+    }
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 4px 16px;
+    }
+    .header h2 { margin: 0; font-size: 22px; font-weight: 700; }
+    .header .date { font-size: 13px; color: #A1887F; }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(93,64,55,.08);
+    }
+    .card h3 { margin: 0 0 12px; font-size: 17px; display: flex; align-items: center; gap: 6px; }
+
+    label { font-size: 14px; color: #8D6E63; font-weight: 500; display: block; margin-bottom: 4px; }
+    input, textarea, select {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid #E0C97F;
+      border-radius: 12px;
+      font-size: 16px;
+      margin: 4px 0 14px;
+      background: #FFFDF5;
+      color: #5D4037;
+      font-family: inherit;
+      transition: border-color .2s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #FFB300;
+      background: #fff;
+    }
+    textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 14px;
+      background: #FFD700;
+      color: #5D4037;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .2s;
+      margin-bottom: 8px;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn-secondary { background: #FFF3E0; color: #E65100; }
+    .btn-danger { background: #FFEBEE; color: #C62828; }
+    .btn-small { padding: 8px 14px; font-size: 13px; width: auto; margin: 0; border-radius: 10px; }
+
+    .tabbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      display: flex;
+      background: #fff;
+      border-top: 1px solid #F0E6D2;
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 100;
+    }
+    .tabbar button {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 10px 0 8px;
+      font-size: 12px;
+      color: #A1887F;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      font-family: inherit;
+    }
+    .tabbar button .icon { font-size: 22px; line-height: 1; }
+    .tabbar button.active { color: #FF8F00; font-weight: 600; }
+
+    .record-item { position: relative; }
+    .record-item .meta { font-size: 12px; color: #A1887F; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .record-item .area-tag {
+      display: inline-block;
+      background: #FFF3E0;
+      color: #E65100;
+      font-size: 12px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      margin-bottom: 6px;
+    }
+    .record-item .text { font-size: 15px; line-height: 1.6; margin: 6px 0; }
+    .record-item .child-name { font-weight: 700; font-size: 16px; }
+
+    .kid-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .kid-item .name { font-size: 16px; font-weight: 600; }
+    .kid-item .count { font-size: 12px; color: #A1887F; margin-top: 2px; }
+
+    .empty {
+      text-align: center;
+      padding: 32px 16px;
+      color: #BCAAA4;
+      font-size: 14px;
+    }
+    .empty .big { font-size: 40px; margin-bottom: 8px; }
+
+    .toast {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(93,64,55,.9);
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+    .toast.show { opacity: 1; }
+
+    .report-output {
+      background: #FFFDF5;
+      border: 1.5px solid #E0C97F;
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      min-height: 100px;
+      margin-bottom: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 14px;
+      color: #8D6E63;
+      font-weight: 600;
+      margin: 16px 4px 8px;
+    }
+
+    .row { display: flex; gap: 10px; }
+    .row > * { flex: 1; }
+
+    /* ===== 照片上传相关样式 ===== */
+    .photo-upload-area {
+      margin: 4px 0 14px;
+    }
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .photo-item {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #FFF8E1;
+    }
+    .photo-item img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      cursor: pointer;
+    }
+    .photo-item .remove-photo {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 22px; height: 22px;
+      background: rgba(0,0,0,.6);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      z-index: 2;
+    }
+    .photo-add-btn {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      border: 2px dashed #E0C97F;
+      border-radius: 10px;
+      background: #FFFDF5;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color .2s, background .2s;
+    }
+    .photo-add-btn:hover { border-color: #FFB300; background: #FFF8E1; }
+    .photo-add-btn .add-icon {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #BCAAA4;
+    }
+    .photo-add-btn .add-icon .plus { font-size: 28px; line-height: 1; }
+    .photo-add-btn .add-icon .label { font-size: 11px; margin-top: 2px; }
+    #photo-input { display: none; }
+
+    /* 记录中的照片缩略图 */
+    .record-photos {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .record-photos .photo-thumb {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .record-photos .photo-thumb img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    /* 周报中的照片展示 */
+    .report-photos-section {
+      margin-top: 4px;
+    }
+    .report-photos-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #5D4037;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .report-photos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .report-photo-item {
+      width: 100%;
+      padding-top: 100%;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(93,64,55,.1);
+    }
+    .report-photo-item img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    .report-photo-item .photo-date {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.6));
+      color: #fff;
+      font-size: 10px;
+      padding: 12px 6px 4px;
+      text-align: center;
+    }
+
+    /* 照片查看灯箱 */
+    .lightbox {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,.92);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .lightbox.active { display: flex; }
+    .lightbox img {
+      max-width: 95%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .lightbox .lightbox-close {
+      position: absolute;
+      top: 20px; right: 20px;
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,.2);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .lightbox .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px; height: 44px;
+      background: rgba(255,255,255,.2);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .lightbox .lightbox-prev { left: 16px; }
+    .lightbox .lightbox-next { right: 16px; }
+    .lightbox .lightbox-counter {
+      color: rgba(255,255,255,.8);
+      font-size: 14px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 记录页（老师用） ===== -->
+  <div id="page-record" class="page active">
+    <div class="header">
+      <h2>记录</h2>
+      <span class="date" id="today-date"></span>
+    </div>
+
+    <div class="card">
+      <h3>新记录</h3>
+      <label>选择孩子</label>
+      <select id="r-child"></select>
+      <label>活动区域</label>
+      <select id="r-area">
+        <option>建构区</option>
+        <option>自然建构区</option>
+        <option>美工区</option>
+        <option>水墨区</option>
+        <option>益智区</option>
+        <option>读写区</option>
+        <option>表演区</option>
+        <option>功能室游戏</option>
+        <option>户外游戏</option>
+        <option>体能循环</option>
+        <option>生活活动</option>
+        <option>其他活动</option>
+      </select>
+      <label>观察记录</label>
+      <textarea id="r-text" rows="4" placeholder="孩子说了什么？做了什么？发生了什么有趣的事？"></textarea>
+      <label>添加照片（最多4张）</label>
+      <div class="photo-upload-area">
+        <div class="photo-grid" id="photo-preview">
+          <div class="photo-add-btn" onclick="document.getElementById('photo-input').click()">
+            <div class="add-icon">
+              <div class="plus">+</div>
+              <div class="label">添加照片</div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotoSelect(event)">
+      </div>
+      <button class="btn" onclick="saveRecord()">保存记录</button>
+    </div>
+
+    <div class="section-title">今日记录</div>
+    <div id="record-list"></div>
+  </div>
+
+  <!-- ===== 周报页 ===== -->
+  <div id="page-report" class="page">
+    <div class="header">
+      <h2>周报</h2>
+    </div>
+
+    <div class="card">
+      <h3>生成成长周报</h3>
+      <label>选择孩子</label>
+      <select id="w-child"></select>
+      <label>时间范围</label>
+      <select id="w-range">
+        <option value="7">最近7天</option>
+        <option value="14">最近14天</option>
+        <option value="30">最近30天</option>
+      </select>
+      <button class="btn" onclick="genReport()">生成周报</button>
+    </div>
+
+    <div id="report-result" style="display:none;">
+      <div class="card">
+        <h3>周报内容</h3>
+        <div class="report-output" id="w-out"></div>
+        <div class="row">
+          <button class="btn" onclick="copyReport()">复制周报文字</button>
+          <button class="btn btn-secondary" onclick="genReport()">重新生成</button>
+        </div>
+      </div>
+      <div class="card" id="report-photos-card" style="display:none;">
+        <div class="report-photos-title">
+          <span>📷</span> 本周精彩照片
+          <span id="report-photos-count" style="font-size:12px;color:#A1887F;font-weight:normal;"></span>
+        </div>
+        <div class="report-photos-grid" id="report-photos-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 孩子管理页 ===== -->
+  <div id="page-kids" class="page">
+    <div class="header">
+      <h2>孩子</h2>
+    </div>
+
+    <div class="card">
+      <h3>添加孩子</h3>
+      <input id="k-name" placeholder="输入孩子名字" onkeypress="if(event.key==='Enter')addChild()">
+      <button class="btn" onclick="addChild()">添加</button>
+    </div>
+
+    <div class="section-title">孩子列表</div>
+    <div id="kid-list"></div>
+
+    <div class="section-title">数据管理</div>
+    <div class="card">
+      <div class="row">
+        <button class="btn btn-secondary btn-small" onclick="exportData()">导出备份</button>
+        <button class="btn btn-danger btn-small" onclick="clearAllData()">清空全部数据</button>
+      </div>
+      <p style="font-size:12px;color:#A1887F;margin:10px 0 0;">数据仅保存在本设备浏览器中，建议定期导出备份。换设备或清除浏览器数据会导致数据丢失。</p>
+    </div>
+  </div>
+
+  <!-- ===== 底部Tab导航 ===== -->
+  <div class="tabbar">
+    <button class="active" onclick="switchTab('record', this)">
+      <span class="icon">📝</span>记录
+    </button>
+    <button onclick="switchTab('report', this)">
+      <span class="icon">📊</span>周报
+    </button>
+    <button onclick="switchTab('kids', this)">
+      <span class="icon">👶</span>孩子
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== 照片查看灯箱 ===== -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <button class="lightbox-close" onclick="closeLightbox()">×</button>
+    <button class="lightbox-nav lightbox-prev" onclick="event.stopPropagation();navLightbox(-1)">‹</button>
+    <img id="lightbox-img" src="" alt="">
+    <button class="lightbox-nav lightbox-next" onclick="event.stopPropagation();navLightbox(1)">›</button>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
+  </div>
+
+  <script>
+    // ===== Service Worker 注册（部署到HTTPS后生效） =====
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // ===== 数据层：localStorage 存取 =====
+    const STORE_KEY = 'jiayuan-data';
+
+    function load() {
+      try {
+        return JSON.parse(localStorage.getItem(STORE_KEY)) || { children: [], records: [] };
+      } catch (e) {
+        return { children: [], records: [] };
+      }
+    }
+
+    function save(db) {
+      localStorage.setItem(STORE_KEY, JSON.stringify(db));
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function todayStr() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    // ===== 照片上传相关 =====
+    let pendingPhotos = [];
+    const MAX_PHOTOS = 4;
+    const MAX_IMAGE_WIDTH = 800;
+    const JPEG_QUALITY = 0.7;
+
+    function handlePhotoSelect(event) {
+      const files = Array.from(event.target.files);
+      if (files.length === 0) return;
+
+      const remaining = MAX_PHOTOS - pendingPhotos.length;
+      if (remaining <= 0) {
+        showToast(`最多只能添加${MAX_PHOTOS}张照片`);
+        event.target.value = '';
+        return;
+      }
+
+      const filesToProcess = files.slice(0, remaining);
+      if (files.length > remaining) {
+        showToast(`最多${MAX_PHOTOS}张，已自动截取前${remaining}张`);
+      }
+
+      let processed = 0;
+      filesToProcess.forEach(file => {
+        compressImage(file, (base64) => {
+          pendingPhotos.push(base64);
+          processed++;
+          if (processed === filesToProcess.length) {
+            renderPhotoPreview();
+          }
+        });
+      });
+
+      event.target.value = '';
+    }
+
+    function compressImage(file, callback) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_IMAGE_WIDTH) {
+            height = Math.round(height * (MAX_IMAGE_WIDTH / width));
+            width = MAX_IMAGE_WIDTH;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const base64 = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+          callback(base64);
+        };
+        img.onerror = () => showToast('图片读取失败，请重试');
+        img.src = e.target.result;
+      };
+      reader.onerror = () => showToast('文件读取失败');
+      reader.readAsDataURL(file);
+    }
+
+    function renderPhotoPreview() {
+      const container = document.getElementById('photo-preview');
+      let html = '';
+
+      pendingPhotos.forEach((photo, index) => {
+        html += `
+          <div class="photo-item">
+            <img src="${photo}" alt="照片${index + 1}" onclick="openLightbox(pendingPhotos, ${index})">
+            <button class="remove-photo" onclick="removePendingPhoto(${index})">×</button>
+          </div>
+        `;
+      });
+
+      if (pendingPhotos.length < MAX_PHOTOS) {
+        html += `
+          <div class="photo-add-btn" onclick="document.getElementById('photo-input').click()">
+            <div class="add-icon">
+              <div class="plus">+</div>
+              <div class="label">添加照片</div>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function removePendingPhoto(index) {
+      pendingPhotos.splice(index, 1);
+      renderPhotoPreview();
+    }
+
+    // ===== 灯箱查看 =====
+    let lightboxPhotos = [];
+    let lightboxIndex = 0;
+
+    function openLightbox(photos, index) {
+      lightboxPhotos = photos;
+      lightboxIndex = index;
+      updateLightbox();
+      document.getElementById('lightbox').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox(event) {
+      if (event && event.target.tagName === 'IMG') return;
+      document.getElementById('lightbox').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    function navLightbox(direction) {
+      lightboxIndex += direction;
+      if (lightboxIndex < 0) lightboxIndex = lightboxPhotos.length - 1;
+      if (lightboxIndex >= lightboxPhotos.length) lightboxIndex = 0;
+      updateLightbox();
+    }
+
+    function updateLightbox() {
+      document.getElementById('lightbox-img').src = lightboxPhotos[lightboxIndex];
+      document.getElementById('lightbox-counter').textContent =
+        `${lightboxIndex + 1} / ${lightboxPhotos.length}`;
+    }
+
+    // ===== 孩子管理 =====
+    function addChild() {
+      const name = document.getElementById('k-name').value.trim();
+      if (!name) return showToast('请输入名字');
+      const db = load();
+      if (db.children.some(c => c.name === name)) return showToast('该孩子已存在');
+      db.children.push({
+        id: Date.now().toString(),
+        name: name,
+        createdAt: new Date().toISOString()
+      });
+      save(db);
+      document.getElementById('k-name').value = '';
+      renderAll();
+      showToast('添加成功');
+    }
+
+    function deleteChild(id) {
+      const db = load();
+      const child = db.children.find(c => c.id === id);
+      if (!child) return;
+      if (!confirm(`确定删除「${child.name}」吗？该孩子的所有记录也会被删除。`)) return;
+      db.children = db.children.filter(c => c.id !== id);
+      db.records = db.records.filter(r => r.childId !== id);
+      save(db);
+      renderAll();
+      showToast('已删除');
+    }
+
+    // ===== 记录管理 =====
+    function saveRecord() {
+      const childSel = document.getElementById('r-child');
+      if (!childSel.value) return showToast('请先添加孩子');
+      const text = document.getElementById('r-text').value.trim();
+      if (!text && pendingPhotos.length === 0) return showToast('请填写观察记录或添加照片');
+
+      const db = load();
+      db.records.push({
+        id: Date.now().toString(),
+        childId: childSel.value,
+        childName: childSel.options[childSel.selectedIndex].text,
+        area: document.getElementById('r-area').value,
+        text: text,
+        photos: pendingPhotos.length > 0 ? [...pendingPhotos] : [],
+        date: todayStr(),
+        createdAt: new Date().toISOString()
+      });
+      save(db);
+      document.getElementById('r-text').value = '';
+      pendingPhotos = [];
+      renderPhotoPreview();
+      renderAll();
+      showToast('已保存');
+    }
+
+    function deleteRecord(id) {
+      if (!confirm('确定删除这条记录吗？')) return;
+      const db = load();
+      db.records = db.records.filter(r => r.id !== id);
+      save(db);
+      renderAll();
+      showToast('已删除');
+    }
+
+    // ===== 周报生成（含照片） =====
+    let currentReportPhotos = [];
+
+    function genReport() {
+      const db = load();
+      const childSel = document.getElementById('w-child');
+      const childId = childSel.value;
+      if (!childId) return showToast('请先添加并选择孩子');
+
+      const days = parseInt(document.getElementById('w-range').value) || 7;
+      const weekAgo = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+      const records = db.records.filter(r => r.childId === childId && r.date >= weekAgo);
+
+      if (records.length === 0) return showToast('这个孩子在所选时间段内还没有记录');
+
+      const childName = childSel.options[childSel.selectedIndex].text;
+
+      // 按区域分组统计
+      const byArea = {};
+      records.forEach(r => {
+        (byArea[r.area] = byArea[r.area] || []).push(r);
+      });
+
+      const areaLines = Object.entries(byArea)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([area, rs]) => {
+          const quote = rs[rs.length - 1].text ? rs[rs.length - 1].text.slice(0, 60) : '（照片记录）';
+          const hasMore = rs[rs.length - 1].text && rs[rs.length - 1].text.length > 60;
+          return `【${area}】本周参与 ${rs.length} 次。代表性表现：「${quote}${hasMore ? '…' : ''}」`;
+        });
+
+      // 收集所有照片（按时间倒序）
+      const allPhotos = [];
+      records.slice().reverse().forEach(r => {
+        if (r.photos && r.photos.length > 0) {
+          r.photos.forEach(p => {
+            allPhotos.push({ src: p, date: r.date, area: r.area });
+          });
+        }
+      });
+      currentReportPhotos = allPhotos;
+
+      const today = todayStr();
+      const photoCount = allPhotos.length;
+      const report =
+`🌟 ${childName} 本周成长周报（${weekAgo} ~ ${today}）
+
+本周共记录 ${records.length} 个精彩瞬间${photoCount > 0 ? `，含 ${photoCount} 张照片` : ''}：
+
+${areaLines.join('\n\n')}
+
+💡 老师的话：
+________________
+
+如想了解更多细节，欢迎和老师交流～`;
+
+      document.getElementById('w-out').textContent = report;
+      document.getElementById('report-result').style.display = 'block';
+
+      // 渲染周报照片
+      const photosCard = document.getElementById('report-photos-card');
+      const photosGrid = document.getElementById('report-photos-grid');
+      const photosCount = document.getElementById('report-photos-count');
+
+      if (allPhotos.length > 0) {
+        photosCard.style.display = 'block';
+        photosCount.textContent = `（共 ${allPhotos.length} 张）`;
+        photosGrid.innerHTML = allPhotos.map((p, i) => `
+          <div class="report-photo-item" onclick="openLightbox(currentReportPhotos.map(x => x.src), ${i})">
+            <img src="${p.src}" alt="照片${i + 1}">
+            <div class="photo-date">${p.date} · ${p.area}</div>
+          </div>
+        `).join('');
+      } else {
+        photosCard.style.display = 'none';
+      }
+    }
+
+    function copyReport() {
+      const text = document.getElementById('w-out').textContent;
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast('已复制，去微信粘贴吧'));
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('已复制，去微信粘贴吧');
+      }
+    }
+
+    // ===== 数据导出与清空 =====
+    function exportData() {
+      const db = load();
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `家园沟通站备份_${todayStr()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('备份已下载');
+    }
+
+    function clearAllData() {
+      if (!confirm('确定要清空全部数据吗？此操作不可恢复！')) return;
+      if (!confirm('再次确认：所有孩子和记录都将被删除，确定继续？')) return;
+      localStorage.removeItem(STORE_KEY);
+      renderAll();
+      showToast('已清空全部数据');
+    }
+
+    // ===== 渲染 =====
+    function renderAll() {
+      const db = load();
+
+      const opts = db.children.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      document.getElementById('r-child').innerHTML = opts || '<option value="">（请先添加孩子）</option>';
+      document.getElementById('w-child').innerHTML = opts || '<option value="">（请先添加孩子）</option>';
+
+      // 今日记录列表
+      const today = todayStr();
+      const todayRecords = db.records.filter(r => r.date === today);
+      if (todayRecords.length === 0) {
+        document.getElementById('record-list').innerHTML =
+          '<div class="card empty"><div class="big">🌱</div>今天还没有记录<br>快去记录孩子们的精彩瞬间吧</div>';
+      } else {
+        document.getElementById('record-list').innerHTML = todayRecords
+          .slice().reverse()
+          .map(r => {
+            let photosHtml = '';
+            if (r.photos && r.photos.length > 0) {
+              photosHtml = '<div class="record-photos">' +
+                r.photos.map((p, pi) => `
+                  <div class="photo-thumb" onclick='openLightbox(${JSON.stringify(r.photos)}, ${pi})'>
+                    <img src="${p}" alt="照片${pi + 1}">
+                  </div>
+                `).join('') +
+                '</div>';
+            }
+            const textHtml = r.text ? `<div class="text">${escapeHtml(r.text)}</div>` : '';
+            return `
+              <div class="card record-item">
+                <div class="child-name">${escapeHtml(r.childName)}</div>
+                <span class="area-tag">${escapeHtml(r.area)}</span>
+                ${textHtml}
+                ${photosHtml}
+                <div class="meta">
+                  <span>${r.date}</span>
+                  <button class="btn btn-danger btn-small" onclick="deleteRecord('${r.id}')">删除</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+      }
+
+      // 孩子列表
+      if (db.children.length === 0) {
+        document.getElementById('kid-list').innerHTML =
+          '<div class="card empty"><div class="big">👶</div>还没有添加孩子<br>点击上方添加第一个孩子吧</div>';
+      } else {
+        document.getElementById('kid-list').innerHTML = db.children.map(c => {
+          const count = db.records.filter(r => r.childId === c.id).length;
+          return `
+            <div class="card kid-item">
+              <div>
+                <div class="name">${escapeHtml(c.name)}</div>
+                <div class="count">共 ${count} 条记录</div>
+              </div>
+              <button class="btn btn-danger btn-small" onclick="deleteChild('${c.id}')">删除</button>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ===== Tab切换 =====
+    function switchTab(name, btn) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    // ===== 初始化 =====
+    document.getElementById('today-date').textContent = todayStr();
+    renderPhotoPreview();
+    renderAll();
+  </script>
+</body>
+</html>
